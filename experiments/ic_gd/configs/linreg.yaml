@@ -1,0 +1,29 @@
+seed: 1
+save_dir: runs/ic_gd/d20_L12
+
+dataset:
+  d: 20
+  n_context: 20
+  n_query: 20
+  sigma_w: 1.0
+  sigma_eps: 0.05
+  n_tasks: 50000
+
+model:
+  d_model: 128
+  n_heads: 4
+  ff_mult: 4
+  depth: 12
+  dropout: 0.0
+
+training:
+  batch_size: 64
+  steps: 50000
+  lr: 1.0e-4
+  weight_decay: 0.01
+  warmup: 2000
+  eval_interval: 1000
+  grad_clip: 1.0
+
+eval:
+  nsamples: 5000
