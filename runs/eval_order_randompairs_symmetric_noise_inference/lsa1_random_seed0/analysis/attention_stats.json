@@ -1,0 +1,13 @@
+{
+  "auroc": 0.8073022769093158,
+  "layer_stats": [
+    {
+      "auroc": 0.8073022769093158,
+      "layer": 0,
+      "mean_clean": -0.00961,
+      "mean_noisy": -0.23183
+    }
+  ],
+  "mean_clean": -0.00961,
+  "mean_noisy": -0.23183
+}

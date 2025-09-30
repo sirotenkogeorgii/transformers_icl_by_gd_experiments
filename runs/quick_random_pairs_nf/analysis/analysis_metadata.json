@@ -1,0 +1,13 @@
+{
+  "noise_mask_shape": [
+    2048,
+    10
+  ],
+  "noise_mode": "random_pairs",
+  "noise_placement": "noisy_first",
+  "ordering_idx_shape": [
+    2048,
+    10
+  ],
+  "ordering_mode": "random"
+}

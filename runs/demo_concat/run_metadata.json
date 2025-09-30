@@ -1,0 +1,25 @@
+{
+  "environment": {
+    "cuda_available": false,
+    "haiku_version": "0.0.15",
+    "jax_version": "0.7.2",
+    "jaxlib_version": "0.7.2",
+    "ml_collections_version": null,
+    "numpy_version": "2.3.3",
+    "optax_version": "0.2.6",
+    "platform": "macOS-26.0-arm64-arm-64bit",
+    "python_hash_seed": "0",
+    "python_version": "3.11.0",
+    "torch_version": "2.0.1"
+  },
+  "eval_every": 500,
+  "noise_mode": "clean",
+  "noise_p": 0.0,
+  "noise_placement": "mixed",
+  "noise_sigma": 0.0,
+  "ordering": "random",
+  "run_dir": "/Users/georgiisirotenko/transformers_icl_by_gd_experiments/runs/demo_concat",
+  "save_attention": false,
+  "seed": 0,
+  "steps": 10000
+}

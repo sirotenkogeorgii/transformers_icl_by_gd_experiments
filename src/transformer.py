@@ -21,6 +21,7 @@ from src.attn import (MLP,
                       create_pos_encoding,
                       LNorm,
                       layer_norm)
+from src.config import config as global_config
 
 
 @dataclasses.dataclass
@@ -261,22 +262,25 @@ class Transformer(hk.Module):
 
     # add / concat positional encodings to each member in batch
     if self.use_pe:
+      pe_scale = global_config.pos_enc_scale_train if is_training else global_config.pos_enc_scale_eval
+      if self.zero_embeddings:
+        pe_scale = 0.0
       if self.concat_pe:
         if predict_test:
           pos_encoding_test = self.pos_encoding_test[None, ...]
           pos_encoding_test = jnp.repeat(pos_encoding_test, embeddings.shape[0], axis=0)
-          pos_encoding_test = pos_encoding_test*0 if self.zero_embeddings else pos_encoding_test
+          pos_encoding_test = pos_encoding_test * pe_scale
           h = jnp.concatenate([embeddings, pos_encoding_test], axis=2)
         else:
           pos_encoding = self.pos_encoding[None, ...]
           pos_encoding = jnp.repeat(pos_encoding, embeddings.shape[0], axis=0)
-          pos_encoding = pos_encoding*0 if self.zero_embeddings else pos_encoding
+          pos_encoding = pos_encoding * pe_scale
           h = jnp.concatenate([embeddings, pos_encoding], axis=2)
       else:
         if predict_test:
-          h = self.pos_encoding_test + embeddings
+          h = pe_scale * self.pos_encoding_test + embeddings
         else:
-          h = self.pos_encoding + embeddings
+          h = pe_scale * self.pos_encoding + embeddings
     else:
       h = embeddings
 

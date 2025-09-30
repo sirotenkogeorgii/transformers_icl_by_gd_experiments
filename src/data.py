@@ -2,11 +2,16 @@
   Provide functions to create regression datasets.
 """
 
+from __future__ import annotations
 from functools import partial
+import warnings
+
 import jax
 from jax import vmap
 import jax.numpy as jnp
 import numpy as np
+
+from src.config import config
 
 
 @partial(jax.jit, static_argnums=(1, 2, 3))
@@ -157,6 +162,284 @@ def create_reg_data_sin_test(rng, rng2, c_size, input_range, w_scale):
 data_creator = vmap(create_reg_data_sin_test,
                     in_axes=(0, None, None, None, None), out_axes=0)
 
+
+def _ensure_batch_dims(seq, target, weights):
+  added_batch = seq.ndim == 2
+  if added_batch:
+    seq = seq[None, ...]
+    target = target[None, ...]
+    weights = weights[None, ...]
+  return seq, target, weights, added_batch
+
+
+def _restore_batch_dims(added_batch, *arrays):
+  restored = []
+  for arr in arrays:
+    if added_batch and arr is not None:
+      restored.append(jnp.squeeze(arr, axis=0))
+    else:
+      restored.append(arr)
+  return tuple(restored)
+
+
+def _split_context_pairs(context_tokens, ordering_idx):
+  """Return prefix tokens that should remain fixed and context pairs to permute."""
+
+  if getattr(config, "classic_token_const", False):
+    pair_span = 2
+  else:
+    pair_span = 1
+
+  total_tokens = context_tokens.shape[1]
+  if pair_span == 1:
+    prefix_len = 0
+  else:
+    prefix_len = total_tokens % pair_span
+
+  prefix_tokens = context_tokens[:, :prefix_len, :]
+  prefix_idx = ordering_idx[:, :prefix_len]
+
+  pair_tokens = context_tokens[:, prefix_len:, :]
+  pair_idx = ordering_idx[:, prefix_len:]
+
+  if pair_span == 1:
+    return prefix_tokens, prefix_idx, pair_tokens, pair_idx
+
+  if pair_tokens.shape[1] % pair_span != 0:
+    raise ValueError("Context tokens cannot be evenly grouped into pairs; check tokenization setup.")
+
+  pair_count = pair_tokens.shape[1] // pair_span
+  pair_tokens = pair_tokens.reshape(pair_tokens.shape[0], pair_count, pair_span, -1)
+  pair_idx = pair_idx.reshape(pair_idx.shape[0], pair_count, pair_span)
+  return prefix_tokens, prefix_idx, pair_tokens, pair_idx
+
+
+def _recombine_pairs(prefix_tokens, prefix_idx, pair_tokens, pair_idx):
+  if pair_tokens.ndim == 3:  # span == 1 -> already flat
+    combined_tokens = pair_tokens
+    combined_idx = pair_idx
+  else:
+    batch, pair_count, pair_span, feat_dim = pair_tokens.shape
+    combined_tokens = pair_tokens.reshape(batch, pair_count * pair_span, feat_dim)
+    combined_idx = pair_idx.reshape(batch, pair_count * pair_span)
+
+  if prefix_tokens.shape[1] == 0:
+    return combined_tokens, combined_idx
+
+  tokens = jnp.concatenate([prefix_tokens, combined_tokens], axis=1)
+  idx = jnp.concatenate([prefix_idx, combined_idx], axis=1)
+  return tokens, idx
+
+
+def apply_ordering(batch, mode: str = "random", teacher_W=None):
+  """Apply ordering transformations to a batch of sequences.
+
+  Args:
+    batch: Tuple of (seq, target, weights) as produced by data creators.
+    mode: Ordering mode identifier.
+    teacher_W: Placeholder for future teacher information.
+
+  Returns:
+    (ordered_batch, metadata) where ordered_batch matches the input layout and
+    metadata contains the permutation indices under the key ``ordering_idx``.
+  """
+
+  seq, target, weights = batch
+  seq, target, weights, added_batch = _ensure_batch_dims(seq, target, weights)
+
+  num_context = seq.shape[1] - 1
+  base_indices = jnp.broadcast_to(jnp.arange(num_context, dtype=jnp.int32), seq.shape[:1] + (num_context,))
+  ordering_idx = base_indices
+  context_tokens = seq[:, :-1, :]
+  apply_permutation = False
+
+  prefix_tokens, prefix_idx, pair_tokens, pair_idx = _split_context_pairs(context_tokens, ordering_idx)
+
+  if getattr(config, "classic_token_const", False):
+    if pair_tokens.size == 0:
+      pair_count = 0
+    else:
+      pair_count = pair_tokens.shape[1]
+    x_tokens = pair_tokens[:, :, 0, :] if pair_tokens.ndim == 4 else pair_tokens
+    y_tokens = pair_tokens[:, :, 1, :] if pair_tokens.ndim == 4 else None
+  else:
+    pair_count = pair_tokens.shape[1]
+    x_tokens = pair_tokens[:, :, :-1]
+    y_tokens = context_tokens[:, :, -1][:, :, None]
+
+  if mode == "random" or mode is None or pair_count == 0:
+    pair_perm = None
+  elif mode == "smallnorm2largenorm":
+    if getattr(config, "classic_token_const", False):
+      norms = jnp.linalg.norm(x_tokens, axis=-1)
+    else:
+      norms = jnp.linalg.norm(x_tokens, axis=-1)
+    pair_perm = jnp.argsort(norms, axis=-1)
+  elif mode in ("easy2hard", "hard2easy"):
+    if not hasattr(weights, "ndim") or weights.ndim != 2:
+      raise ValueError(
+          "Ordering modes 'easy2hard'/'hard2easy' require teacher weights; not available in this batch."
+      )
+    if getattr(config, "classic_token_const", False):
+      teacher_pred = jnp.einsum("bij,bj->bi", x_tokens, weights)
+      y_values = y_tokens[:, :, -1]
+    else:
+      teacher_pred = jnp.einsum("bij,bj->bi", x_tokens, weights)
+      y_values = context_tokens[:, :, -1]
+    residuals = jnp.abs(y_values - teacher_pred)
+    if mode == "easy2hard":
+      pair_perm = jnp.argsort(residuals, axis=-1)
+    else:
+      pair_perm = jnp.argsort(-residuals, axis=-1)
+  else:
+    raise ValueError(f"Unsupported ordering mode: {mode}")
+
+  if pair_perm is not None:
+    if pair_tokens.ndim == 4:
+      pair_tokens = jnp.take_along_axis(pair_tokens, pair_perm[..., None, None], axis=1)
+      pair_idx = jnp.take_along_axis(pair_idx, pair_perm[..., None], axis=1)
+    else:
+      pair_tokens = jnp.take_along_axis(pair_tokens, pair_perm[..., None], axis=1)
+      pair_idx = jnp.take_along_axis(pair_idx, pair_perm, axis=1)
+
+  context_tokens_perm, ordering_idx_perm = _recombine_pairs(prefix_tokens, prefix_idx, pair_tokens, pair_idx)
+
+  ordered_seq = jnp.concatenate([context_tokens_perm, seq[:, -1:, :]], axis=1)
+
+  ordered_seq, target, weights, ordering_idx_out = _restore_batch_dims(
+      added_batch, ordered_seq, target, weights, ordering_idx_perm)
+
+  metadata = {"ordering_idx": ordering_idx_out}
+  return (ordered_seq, target, weights), metadata
+
+
+def _inject_noise_core(
+    batch,
+    mode: str = "clean",
+    p: float = 0.0,
+    sigma: float = 0.0,
+    placement: str = "mixed",
+    rng: jax.random.PRNGKey | None = None,
+    apply_placement: bool = True,
+):
+  """Inject noise with optional placement shuffling."""
+
+  seq, target, weights = batch
+  seq, target, weights, added_batch = _ensure_batch_dims(seq, target, weights)
+  num_context = seq.shape[1] - 1
+  noise_mask = jnp.zeros((seq.shape[0], num_context), dtype=jnp.bool_)
+  context_tokens = seq[:, :-1, :]
+
+  mode = mode or "clean"
+  placement = placement or "mixed"
+  p = float(max(0.0, min(1.0, p)))
+  sigma = float(sigma)
+
+  rng_local = rng
+  mask = jnp.zeros((seq.shape[0], num_context), dtype=jnp.bool_)
+  if mode in ("label_noise", "random_pairs") and p > 0.0:
+    if rng_local is None:
+      rng_local = jax.random.PRNGKey(0)
+    rng_local, mask_rng = jax.random.split(rng_local)
+    mask = jax.random.uniform(mask_rng, shape=(seq.shape[0], num_context)) < p
+
+  if mode == "label_noise" and p > 0.0 and sigma > 0.0:
+    if rng_local is None:
+      rng_local = jax.random.PRNGKey(0)
+    rng_local, noise_rng = jax.random.split(rng_local)
+    noise = jax.random.normal(noise_rng, shape=(seq.shape[0], num_context)) * sigma
+    label_channel = context_tokens[:, :, -1]
+    label_channel = label_channel + noise * mask.astype(label_channel.dtype)
+    context_tokens = context_tokens.at[:, :, -1].set(label_channel)
+    noise_mask = mask
+  elif mode == "random_pairs" and p > 0.0:
+    if rng_local is None:
+      rng_local = jax.random.PRNGKey(0)
+    rng_local, x_rng, y_rng = jax.random.split(rng_local, 3)
+    feature_dim = context_tokens.shape[-1] - 1
+    half_range = getattr(config, "input_range", 1.0) / 2.0
+    minval = -half_range
+    maxval = half_range
+    new_x = jax.random.uniform(
+        x_rng,
+        shape=(seq.shape[0], num_context, feature_dim),
+        minval=minval,
+        maxval=maxval,
+    )
+    new_y = jax.random.uniform(
+        y_rng,
+        shape=(seq.shape[0], num_context),
+        minval=minval,
+        maxval=maxval,
+    )
+    feature_slice = context_tokens[:, :, :-1]
+    feature_slice = jnp.where(mask[..., None], new_x, feature_slice)
+    context_tokens = context_tokens.at[:, :, :-1].set(feature_slice)
+    label_channel = context_tokens[:, :, -1]
+    label_channel = jnp.where(mask, new_y, label_channel)
+    context_tokens = context_tokens.at[:, :, -1].set(label_channel)
+    noise_mask = mask
+  elif mode == "random_pairs":
+    warnings.warn(
+        "random_pairs noise mode requested with p=0; returning clean batch",
+        RuntimeWarning,
+    )
+  elif mode == "label_noise":
+    # No label noise applied because either p == 0 or sigma == 0.
+    pass
+  elif mode not in ("clean", "none"):
+    raise ValueError(f"Unsupported noise mode: {mode}")
+
+  if apply_placement:
+    if placement not in ("mixed", "clean_first", "noisy_first"):
+      raise ValueError(f"Unsupported noise placement: {placement}")
+
+    if placement == "clean_first":
+      order_idx = jnp.argsort(noise_mask.astype(jnp.int32), axis=-1)
+    elif placement == "noisy_first":
+      order_idx = jnp.argsort(-noise_mask.astype(jnp.int32), axis=-1)
+    else:
+      order_idx = None
+
+    if order_idx is not None:
+      expanded_idx = order_idx[..., None]
+      context_tokens = jnp.take_along_axis(context_tokens, expanded_idx, axis=1)
+      noise_mask = jnp.take_along_axis(noise_mask, order_idx, axis=1)
+  else:
+    placement = "mixed"
+
+  updated_seq = jnp.concatenate([context_tokens, seq[:, -1:, :]], axis=1)
+  updated_seq, target, weights, noise_mask = _restore_batch_dims(
+      added_batch, updated_seq, target, weights, noise_mask)
+
+  metadata = {
+      "noise_mask": noise_mask,
+      "noise_mode": mode,
+      "noise_placement": placement,
+  }
+  return (updated_seq, target, weights), metadata
+
+
+def inject_noise(
+    batch,
+    mode: str = "clean",
+    p: float = 0.0,
+    sigma: float = 0.0,
+    placement: str = "mixed",
+    rng: jax.random.PRNGKey | None = None,
+):
+  """Inject noise into batches according to the selected mode."""
+
+  return _inject_noise_core(
+      batch,
+      mode=mode,
+      p=p,
+      sigma=sigma,
+      placement=placement,
+      rng=rng,
+      apply_placement=True,
+  )
+
 rng = jax.random.PRNGKey(0)
 rng, test_rng_avg = jax.random.split(rng, 2)
 test_data = data_creator(jax.random.split(rng, num=10), test_rng_avg, 10, 10, 1)
@@ -295,6 +578,3 @@ def create_weights(i_size, o_size, c_size, lr, w_init, second_zero=False,
   return params_new
 
 create_weights(10, 1, 10, 0.1, jnp.ones([1, 1, 10])*0.1)
-
-
-

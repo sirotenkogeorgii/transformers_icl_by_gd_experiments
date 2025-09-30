@@ -1,0 +1,12 @@
+[
+  {
+    "head": 0,
+    "layer": 0,
+    "path": "layer0_head0.npy",
+    "raw_path": "layer0.npz",
+    "shape": [
+      11,
+      10
+    ]
+  }
+]

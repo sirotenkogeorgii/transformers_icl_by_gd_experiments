@@ -1,0 +1,9 @@
+absl-py>=1.4.0
+matplotlib==3.7.2
+numpy==1.24.3
+optax==0.1.7
+dm-haiku==0.0.12
+jax==0.4.23
+jaxlib==0.4.23
+ml-collections==0.1.1
+pytz>=2023.3

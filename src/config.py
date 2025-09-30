@@ -9,6 +9,7 @@ config.tensorboard_dir = './local/'
 config.local_usage = False
 config.analyse = True
 config.ana_copy = False
+config.save_attention = False
 
 # Language hps
 config.vocab_size = 60000
@@ -34,6 +35,11 @@ config.input_shift = 0
 config.size_distract = 0
 config.classic_token_const = False
 config.non_linear_reg_task = False
+config.ordering = "random"
+config.noise_mode = "clean"
+config.noise_p = 0.0
+config.noise_sigma = 0.0
+config.noise_placement = "mixed"
 
 # Model hps
 config.new_token_construction = True
@@ -46,6 +52,8 @@ config.pos_enc = False
 config.pos_enc_size = 0
 config.concat_pos_enc = False
 config.zero_pos_enc = False
+config.pos_enc_scale_train = 1.0
+config.pos_enc_scale_eval = 1.0
 config.use_softmax = False
 config.use_non_lin_mix = False
 config.first_layer_sm = False
@@ -80,14 +88,16 @@ config.bs = 512
 config.bs_gd_train = 2048
 config.grad_clip_value = 1e10
 config.grad_clip_value_gd = 1e10
+
+### training steps ###
 config.training_steps = 10000
 config.training_steps_gd = 10000
+# config.training_steps = 1000
+# config.training_steps_gd = 1000
+### training steps ###
+
 config.wd = 0.0
 config.cycle_data = 0
 
 # Data loading
 config.windowing = False
-
-
-
-

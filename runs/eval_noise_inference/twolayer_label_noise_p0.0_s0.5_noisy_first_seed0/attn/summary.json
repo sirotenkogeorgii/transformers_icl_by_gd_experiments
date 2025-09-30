@@ -1,0 +1,22 @@
+[
+  {
+    "head": 0,
+    "layer": 0,
+    "path": "layer0_head0.npy",
+    "raw_path": "layer0.npz",
+    "shape": [
+      21,
+      20
+    ]
+  },
+  {
+    "head": 0,
+    "layer": 1,
+    "path": "layer1_head0.npy",
+    "raw_path": "layer1.npz",
+    "shape": [
+      21,
+      20
+    ]
+  }
+]

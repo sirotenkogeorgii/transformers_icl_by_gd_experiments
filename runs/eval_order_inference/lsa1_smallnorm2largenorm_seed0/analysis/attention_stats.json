@@ -1,0 +1,13 @@
+{
+  "auroc": NaN,
+  "layer_stats": [
+    {
+      "auroc": NaN,
+      "layer": 0,
+      "mean_clean": -0.13215544819831848,
+      "mean_noisy": NaN
+    }
+  ],
+  "mean_clean": -0.1321554533646549,
+  "mean_noisy": NaN
+}

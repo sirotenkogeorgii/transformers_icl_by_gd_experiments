@@ -1,0 +1,39 @@
+{
+  "eval_config": {
+    "noise_mode": "label_noise",
+    "noise_p": 0.0,
+    "noise_placement": "noisy_first",
+    "noise_sigma": 0.5,
+    "ordering": "random"
+  },
+  "eval_dataset_metadata": {
+    "noise_mask_shape": [
+      2048,
+      10
+    ],
+    "noise_mode": "label_noise",
+    "noise_placement": "noisy_first",
+    "ordering_idx_shape": [
+      2048,
+      10
+    ],
+    "ordering_mode": "random"
+  },
+  "train_config": {
+    "noise_mode": "label_noise",
+    "noise_p": 0.0,
+    "noise_placement": "noisy_first",
+    "noise_sigma": 0.5,
+    "ordering": "random"
+  },
+  "train_dataset_metadata": {
+    "noise_mask_shape": [
+      2048,
+      10
+    ],
+    "ordering_idx_shape": [
+      2048,
+      10
+    ]
+  }
+}

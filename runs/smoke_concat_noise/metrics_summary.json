@@ -1,0 +1,12 @@
+{
+  "noise_mode": "label_noise",
+  "noise_p": 0.25,
+  "noise_placement": "mixed",
+  "noise_sigma": 0.5,
+  "num_steps": 10000,
+  "ordering": "random",
+  "save_attention": false,
+  "step": 9999,
+  "test_loss": 0.32555076479911804,
+  "train_loss": 0.34115171432495117
+}

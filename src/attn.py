@@ -293,7 +293,6 @@ def layer_norm(x: jnp.ndarray, name: Optional[str] = None) -> jnp.ndarray:
                       name=name)(x)
 
 
-
 def create_pos_encoding(context_size, input_size, flip=False):
   """Create constant positional encoding."""
   pe = np.zeros((context_size, input_size))
@@ -308,13 +307,13 @@ def create_pos_encoding(context_size, input_size, flip=False):
   else:
     return jax.numpy.squeeze(jax.device_put(pe), axis=0)
 
-def create_pos_encoding_diff(context_size, input_size):
-  """Create constant positional encoding."""
-  pe = np.zeros((context_size, input_size))
-  position = np.arange(0, context_size, dtype=np.float32)[:, None]
-  twoi = np.arange(0, input_size, 2)
-  #div_term = np.exp(twoi * (-math.log(10000.0)/input_size))
-  pe[:, 0::2] = np.sin(position / (10000**(twoi/input_size)))
-  pe[:, 1::2] = np.cos(position / (10000**(twoi/input_size)))
-  pe = pe[None]
-  return jax.numpy.squeeze(jax.device_put(pe), axis=0)
+# def create_pos_encoding_diff(context_size, input_size):
+#   """Create constant positional encoding."""
+#   pe = np.zeros((context_size, input_size))
+#   position = np.arange(0, context_size, dtype=np.float32)[:, None]
+#   twoi = np.arange(0, input_size, 2)
+#   #div_term = np.exp(twoi * (-math.log(10000.0)/input_size))
+#   pe[:, 0::2] = np.sin(position / (10000**(twoi/input_size)))
+#   pe[:, 1::2] = np.cos(position / (10000**(twoi/input_size)))
+#   pe = pe[None]
+#   return jax.numpy.squeeze(jax.device_put(pe), axis=0)

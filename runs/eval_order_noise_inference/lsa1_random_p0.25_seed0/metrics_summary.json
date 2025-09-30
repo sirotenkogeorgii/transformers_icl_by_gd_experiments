@@ -1,0 +1,22 @@
+{
+  "eval_noise_mode": "label_noise",
+  "eval_noise_p": 0.25,
+  "eval_noise_placement": "mixed",
+  "eval_noise_sigma": 0.5,
+  "eval_ordering": "random",
+  "noise_mode": "label_noise",
+  "noise_p": 0.25,
+  "noise_placement": "mixed",
+  "noise_sigma": 0.5,
+  "num_steps": 10000,
+  "ordering": "random",
+  "save_attention": true,
+  "step": 9999,
+  "test_loss": 0.31173649430274963,
+  "train_loss": 0.3189997673034668,
+  "train_noise_mode": "clean",
+  "train_noise_p": 0.25,
+  "train_noise_placement": "mixed",
+  "train_noise_sigma": 0.5,
+  "train_ordering": "random"
+}

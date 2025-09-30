@@ -1,0 +1,18 @@
+{
+  "align_cos": 0.7904419898986816,
+  "eta": 0.1,
+  "eta_candidates": [
+    0.1
+  ],
+  "l2_pred_diff": 0.6504120465207599,
+  "pe_scale": 1.0,
+  "per_eta": [
+    {
+      "align_cos": 0.7904419898986816,
+      "eta": 0.1,
+      "l2_pred_diff": 0.6504120465207599
+    }
+  ],
+  "seq_sha1": "a1440cee5bddcbf8a90b7f1299849cbb3b343db4",
+  "target_sha1": "7ee2e32b18ead01fbff49e35ef676ea21f9c4b71"
+}
